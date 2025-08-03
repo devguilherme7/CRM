@@ -21,8 +21,8 @@ dependencies {
     testImplementation 'io.quarkus:quarkus-junit5'
 }
 
-group 'cms'
-version '1.0-SNAPSHOT'
+group 'crm'
+version '0.0.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
