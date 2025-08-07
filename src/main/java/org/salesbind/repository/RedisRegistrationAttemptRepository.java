@@ -1,0 +1,78 @@
+package org.salesbind.repository;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.redis.datasource.value.ValueCommands;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.salesbind.model.RegistrationAttempt;
+import java.util.Optional;
+
+@ApplicationScoped
+public class RedisRegistrationAttemptRepository implements RegistrationAttemptRepository {
+
+    private static final String SIGNUP_SESSION_PREFIX = "signup:session:";
+    private static final String SIGNUP_EMAIL_INDEX_PREFIX = "signup:email:";
+
+    private final RedisDataSource redis;
+    private final ValueCommands<String, String> valueCommands;
+    private final ObjectMapper objectMapper;
+
+    public RedisRegistrationAttemptRepository(RedisDataSource redis, ObjectMapper objectMapper) {
+        this.redis = redis;
+        this.valueCommands = redis.value(String.class);
+        this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public void save(RegistrationAttempt attempt) {
+        String sessionKey = getSignupSessionKey(attempt.getId());
+        String emailIndexKey = getSignupEmailIndexKey(attempt.getEmail());
+
+        long expirationSeconds = 900;
+        try {
+            String json = objectMapper.writeValueAsString(attempt);
+            System.out.println("json: " + json); // NUNCA CHEGA AQUI
+            redis.withTransaction(tx -> {
+                tx.value(String.class).setex(sessionKey, expirationSeconds, json);
+                tx.value(String.class).setex(emailIndexKey, expirationSeconds, attempt.getId());
+            });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Optional<RegistrationAttempt> findById(String sessionId) {
+        String sessionKey = getSignupSessionKey(sessionId);
+        String json = valueCommands.get(sessionKey);
+        if (json == null) {
+            return Optional.empty();
+        }
+
+        try {
+            RegistrationAttempt attempt = objectMapper.readValue(json, RegistrationAttempt.class);
+            return Optional.ofNullable(attempt);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Optional<RegistrationAttempt> findByEmail(String email) {
+        String emailIndexKey = getSignupEmailIndexKey(email);
+        String sessionId = valueCommands.get(emailIndexKey);
+        System.out.println("sid: " + sessionId); // NULL
+        if (sessionId == null) {
+            return Optional.empty();
+        }
+        return findById(sessionId);
+    }
+
+    public static String getSignupSessionKey(String sessionId) {
+        return SIGNUP_SESSION_PREFIX + sessionId;
+    }
+
+    public static String getSignupEmailIndexKey(String email) {
+        return SIGNUP_EMAIL_INDEX_PREFIX + email;
+    }
+}
