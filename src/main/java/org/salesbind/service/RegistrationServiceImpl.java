@@ -1,6 +1,7 @@
 package org.salesbind.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.BadRequestException;
 import org.salesbind.infrastructure.security.RandomNumericCodeGenerator;
 import org.salesbind.infrastructure.session.SessionIdGenerator;
 import org.salesbind.model.RegistrationAttempt;
@@ -36,5 +37,18 @@ public class RegistrationServiceImpl implements RegistrationService {
         registrationAttemptRepository.save(attempt);
 
         return attempt.getId();
+    }
+
+    @Override
+    public void verifyEmail(String sessionId, String verificationCode) {
+        RegistrationAttempt attempt = registrationAttemptRepository.findById(sessionId)
+                .orElseThrow(() -> new BadRequestException("Invalid session"));
+
+        boolean verified = attempt.verifyEmail(verificationCode);
+        if (verified) {
+            throw new BadRequestException("Invalid verification code");
+        }
+
+        registrationAttemptRepository.save(attempt);
     }
 }
