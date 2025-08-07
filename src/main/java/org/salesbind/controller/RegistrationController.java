@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.Response;
 import org.salesbind.dto.CompleteRegistrationRequest;
 import org.salesbind.dto.VerifyEmailCodeRequest;
 import org.salesbind.dto.RequestEmailVerificationRequest;
+import org.salesbind.infrastructure.configuration.RegistrationProperties;
 import org.salesbind.service.RegistrationService;
 
 @Path("/v1/registrations")
@@ -21,9 +22,12 @@ import org.salesbind.service.RegistrationService;
 public class RegistrationController {
 
     private final RegistrationService registrationService;
+    private final RegistrationProperties registrationProperties;
 
-    public RegistrationController(RegistrationService registrationService) {
+    public RegistrationController(RegistrationService registrationService,
+            RegistrationProperties registrationProperties) {
         this.registrationService = registrationService;
+        this.registrationProperties = registrationProperties;
     }
 
     @POST
@@ -31,8 +35,8 @@ public class RegistrationController {
     public Response requestEmailVerification(@Valid RequestEmailVerificationRequest request) {
         String sessionId = registrationService.requestEmailVerification(request.email());
         NewCookie sessionCookie = new NewCookie.Builder("_UAC_SID")
-                .value(sessionId).path("/v1/registrations").maxAge(3600).secure(true).httpOnly(true)
-                .sameSite(NewCookie.SameSite.STRICT).build();
+                .value(sessionId).path("/v1/registrations").maxAge(registrationProperties.session().expirationSeconds())
+                .secure(true).httpOnly(true).sameSite(NewCookie.SameSite.STRICT).build();
 
         return Response.accepted().cookie(sessionCookie).build();
     }

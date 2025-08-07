@@ -7,6 +7,7 @@ import org.salesbind.exception.EmailAlreadyExistsException;
 import org.salesbind.exception.EmailNotVerifiedException;
 import org.salesbind.exception.InvalidRegistrationSessionException;
 import org.salesbind.exception.InvalidVerificationCode;
+import org.salesbind.infrastructure.configuration.RegistrationProperties;
 import org.salesbind.infrastructure.security.PasswordEncoder;
 import org.salesbind.infrastructure.security.RandomNumericCodeGenerator;
 import org.salesbind.infrastructure.session.SessionIdGenerator;
@@ -14,7 +15,6 @@ import org.salesbind.model.RegistrationAttempt;
 import org.salesbind.model.User;
 import org.salesbind.repository.RegistrationAttemptRepository;
 import org.salesbind.repository.UserRepository;
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 @ApplicationScoped
@@ -27,15 +27,18 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final RandomNumericCodeGenerator randomNumericCodeGenerator;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final RegistrationProperties registrationProperties;
 
     public RegistrationServiceImpl(RegistrationAttemptRepository registrationAttemptRepository,
             SessionIdGenerator sessionIdGenerator, RandomNumericCodeGenerator randomNumericCodeGenerator,
-            PasswordEncoder passwordEncoder, UserRepository userRepository) {
+            PasswordEncoder passwordEncoder, UserRepository userRepository,
+            RegistrationProperties registrationProperties) {
         this.registrationAttemptRepository = registrationAttemptRepository;
         this.sessionIdGenerator = sessionIdGenerator;
         this.randomNumericCodeGenerator = randomNumericCodeGenerator;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
+        this.registrationProperties = registrationProperties;
     }
 
     @Override
@@ -44,7 +47,8 @@ public class RegistrationServiceImpl implements RegistrationService {
                 .orElseGet(() -> new RegistrationAttempt(sessionIdGenerator.generate(), email));
 
         String verificationCode = randomNumericCodeGenerator.generate(VERIFICATION_CODE_LENGTH);
-        LocalDateTime verificationCodeExpirationTime = LocalDateTime.now().plus(Duration.ofMinutes(15));
+        LocalDateTime verificationCodeExpirationTime = LocalDateTime.now().plusSeconds(
+                registrationProperties.verificationCode().expirationSeconds());
 
         attempt.assignVerificationCode(verificationCode, verificationCodeExpirationTime);
         registrationAttemptRepository.save(attempt);

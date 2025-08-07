@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.value.ValueCommands;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.salesbind.infrastructure.configuration.RegistrationProperties;
 import org.salesbind.model.RegistrationAttempt;
 import java.util.Optional;
 
@@ -16,11 +17,14 @@ public class RedisRegistrationAttemptRepository implements RegistrationAttemptRe
     private final RedisDataSource redis;
     private final ValueCommands<String, String> valueCommands;
     private final ObjectMapper objectMapper;
+    private final RegistrationProperties registrationProperties;
 
-    public RedisRegistrationAttemptRepository(RedisDataSource redis, ObjectMapper objectMapper) {
+    public RedisRegistrationAttemptRepository(RedisDataSource redis, ObjectMapper objectMapper,
+            RegistrationProperties registrationProperties) {
         this.redis = redis;
         this.valueCommands = redis.value(String.class);
         this.objectMapper = objectMapper;
+        this.registrationProperties = registrationProperties;
     }
 
     @Override
@@ -28,7 +32,7 @@ public class RedisRegistrationAttemptRepository implements RegistrationAttemptRe
         String sessionKey = getSignupSessionKey(attempt.getId());
         String emailIndexKey = getSignupEmailIndexKey(attempt.getEmail());
 
-        long expirationSeconds = 900;
+        long expirationSeconds = registrationProperties.session().expirationSeconds();
         try {
             String json = objectMapper.writeValueAsString(attempt);
             redis.withTransaction(tx -> {
