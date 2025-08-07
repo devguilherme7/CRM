@@ -10,4 +10,6 @@ public interface RegistrationAttemptRepository {
     Optional<RegistrationAttempt> findById(String sessionId);
 
     Optional<RegistrationAttempt> findByEmail(String email);
+
+    void delete(RegistrationAttempt attempt);
 }

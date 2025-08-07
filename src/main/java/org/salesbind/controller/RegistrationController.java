@@ -1,6 +1,7 @@
 package org.salesbind.controller;
 
 import jakarta.validation.Valid;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.POST;
@@ -9,7 +10,8 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
-import org.salesbind.dto.EmailVerificationRequest;
+import org.salesbind.dto.CompleteRegistrationRequest;
+import org.salesbind.dto.VerifyEmailCodeRequest;
 import org.salesbind.dto.RequestEmailVerificationRequest;
 import org.salesbind.service.RegistrationService;
 
@@ -37,8 +39,29 @@ public class RegistrationController {
 
     @POST
     @Path("/verifyEmail")
-    public Response verifyEmail(@CookieParam("_UAC_SID") String sessionId, @Valid EmailVerificationRequest request) {
+    public Response verifyEmail(@CookieParam("_UAC_SID") String sessionId, @Valid VerifyEmailCodeRequest request) {
+        if (sessionId == null) {
+            throw new BadRequestException("Registration session not found");
+        }
+
         registrationService.verifyEmail(sessionId, request.verificationCode());
         return Response.noContent().build();
+    }
+
+    @POST
+    @Path("/completeRegistration")
+    public Response completeRegistration(@CookieParam("_UAC_SID") String sessionId,
+            @Valid CompleteRegistrationRequest request) {
+
+        if (sessionId == null) {
+            throw new BadRequestException("Registration session not found");
+        }
+
+        registrationService.completeRegistration(sessionId, request);
+
+        NewCookie clearCookie = new NewCookie.Builder("_UAC_SID")
+                .value("").path("/").httpOnly(true).maxAge(0).build();
+
+        return Response.status(Response.Status.CREATED).cookie(clearCookie).build();
     }
 }

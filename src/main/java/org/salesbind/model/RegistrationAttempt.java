@@ -1,5 +1,6 @@
 package org.salesbind.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 
@@ -27,7 +28,7 @@ public class RegistrationAttempt {
     }
 
     public boolean verifyEmail(String providedCode) {
-        if (emailVerifiedAt != null) {
+        if (isEmailVerified()) {
             return true;
         }
 
@@ -51,6 +52,11 @@ public class RegistrationAttempt {
         this.emailVerifiedAt = LocalDateTime.now();
         this.verificationCode = null;
         this.codeExpiresAt = null;
+    }
+
+    @JsonIgnore
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
     }
 
     public String getId() {

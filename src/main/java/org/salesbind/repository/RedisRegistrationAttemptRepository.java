@@ -31,7 +31,6 @@ public class RedisRegistrationAttemptRepository implements RegistrationAttemptRe
         long expirationSeconds = 900;
         try {
             String json = objectMapper.writeValueAsString(attempt);
-            System.out.println("json: " + json); // NUNCA CHEGA AQUI
             redis.withTransaction(tx -> {
                 tx.value(String.class).setex(sessionKey, expirationSeconds, json);
                 tx.value(String.class).setex(emailIndexKey, expirationSeconds, attempt.getId());
@@ -61,18 +60,25 @@ public class RedisRegistrationAttemptRepository implements RegistrationAttemptRe
     public Optional<RegistrationAttempt> findByEmail(String email) {
         String emailIndexKey = getSignupEmailIndexKey(email);
         String sessionId = valueCommands.get(emailIndexKey);
-        System.out.println("sid: " + sessionId); // NULL
         if (sessionId == null) {
             return Optional.empty();
         }
         return findById(sessionId);
     }
 
-    public static String getSignupSessionKey(String sessionId) {
+    @Override
+    public void delete(RegistrationAttempt attempt) {
+        String registrationSessionKey = getSignupSessionKey(attempt.getId());
+        String registrationEmailIndexKey = getSignupEmailIndexKey(attempt.getEmail());
+
+        redis.key().del(registrationSessionKey, registrationEmailIndexKey);
+    }
+
+    private static String getSignupSessionKey(String sessionId) {
         return SIGNUP_SESSION_PREFIX + sessionId;
     }
 
-    public static String getSignupEmailIndexKey(String email) {
+    private static String getSignupEmailIndexKey(String email) {
         return SIGNUP_EMAIL_INDEX_PREFIX + email;
     }
 }
