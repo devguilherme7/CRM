@@ -17,5 +17,7 @@ public interface RegistrationProperties {
     interface VerificationCode {
 
         int expirationSeconds();
+
+        int maxFailedVerificationAttempts();
     }
 }

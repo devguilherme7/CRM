@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 public class User extends BaseJpaEntity {
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, unique = true, length = 100)
     private String email;
 
     @Column(nullable = false, length = 50)

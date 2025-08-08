@@ -1,12 +1,14 @@
 package org.salesbind.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.salesbind.dto.CompleteRegistrationRequest;
 import org.salesbind.exception.EmailAlreadyExistsException;
 import org.salesbind.exception.EmailNotVerifiedException;
 import org.salesbind.exception.InvalidRegistrationSessionException;
 import org.salesbind.exception.InvalidVerificationCode;
+import org.salesbind.exception.VerificationCodeMaxAttemptsExceededException;
 import org.salesbind.infrastructure.configuration.RegistrationProperties;
 import org.salesbind.infrastructure.security.PasswordEncoder;
 import org.salesbind.infrastructure.security.RandomNumericCodeGenerator;
@@ -22,24 +24,23 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     public static final int VERIFICATION_CODE_LENGTH = 6;
 
-    private final RegistrationAttemptRepository registrationAttemptRepository;
-    private final SessionIdGenerator sessionIdGenerator;
-    private final RandomNumericCodeGenerator randomNumericCodeGenerator;
-    private final PasswordEncoder passwordEncoder;
-    private final UserRepository userRepository;
-    private final RegistrationProperties registrationProperties;
+    @Inject
+    RegistrationAttemptRepository registrationAttemptRepository;
 
-    public RegistrationServiceImpl(RegistrationAttemptRepository registrationAttemptRepository,
-            SessionIdGenerator sessionIdGenerator, RandomNumericCodeGenerator randomNumericCodeGenerator,
-            PasswordEncoder passwordEncoder, UserRepository userRepository,
-            RegistrationProperties registrationProperties) {
-        this.registrationAttemptRepository = registrationAttemptRepository;
-        this.sessionIdGenerator = sessionIdGenerator;
-        this.randomNumericCodeGenerator = randomNumericCodeGenerator;
-        this.passwordEncoder = passwordEncoder;
-        this.userRepository = userRepository;
-        this.registrationProperties = registrationProperties;
-    }
+    @Inject
+    SessionIdGenerator sessionIdGenerator;
+
+    @Inject
+    RandomNumericCodeGenerator randomNumericCodeGenerator;
+
+    @Inject
+    PasswordEncoder passwordEncoder;
+
+    @Inject
+    UserRepository userRepository;
+
+    @Inject
+    RegistrationProperties registrationProperties;
 
     @Override
     public String requestEmailVerification(String email) {
@@ -61,11 +62,22 @@ public class RegistrationServiceImpl implements RegistrationService {
         RegistrationAttempt attempt = registrationAttemptRepository.findById(sessionId)
                 .orElseThrow(InvalidRegistrationSessionException::new);
 
-        boolean verified = attempt.verifyEmail(verificationCode);
-        if (!verified) {
+        if (attempt.isEmailVerified()) {
+            return; // Already verified, idempotent success
+        }
+
+        if (attempt.hasExceededMaxAttempts(registrationProperties.verificationCode().maxFailedVerificationAttempts())) {
+            registrationAttemptRepository.delete(attempt);
+            throw new VerificationCodeMaxAttemptsExceededException();
+        }
+
+        if (!attempt.isVerificationCodeCorrect(verificationCode)) {
+            attempt.incrementFailedAttempts();
+            registrationAttemptRepository.save(attempt);
             throw new InvalidVerificationCode();
         }
 
+        attempt.markAsVerified();
         registrationAttemptRepository.save(attempt);
     }
 
